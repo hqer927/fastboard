@@ -38,37 +38,29 @@ export async function build({
   const protobufjsInquireBrowserShim = resolve(buildtoolDir, "shims/protobufjs-inquire-browser.js");
   const appliancePluginLoader = resolve(
     buildtoolDir,
-    "../fastboard-core/src/impl/appliance-plugin-loader.ts",
+    "../fastboard-core/src/impl/appliance-plugin-loader.ts"
   );
   const appliancePluginFullLoader = resolve(
     buildtoolDir,
-    "../fastboard-core/src/impl/appliance-plugin-loader.full.ts",
+    "../fastboard-core/src/impl/appliance-plugin-loader.full.ts"
   );
   const appInMainViewPluginLoader = resolve(
     buildtoolDir,
-    "../fastboard-core/src/impl/app-in-mainview-plugin-loader.ts",
+    "../fastboard-core/src/impl/app-in-mainview-plugin-loader.ts"
   );
   const appInMainViewPluginFullLoader = resolve(
     buildtoolDir,
-    "../fastboard-core/src/impl/app-in-mainview-plugin-loader.full.ts",
+    "../fastboard-core/src/impl/app-in-mainview-plugin-loader.full.ts"
   );
 
   const localName = name.split("/").pop() || name;
-  const standaloneMode = localName.endsWith("-lite")
-    ? "lite"
-    : localName.endsWith("-full")
-      ? "full"
-      : null;
+  const standaloneMode = localName.endsWith("-lite") ? "lite" : localName.endsWith("-full") ? "full" : null;
   const packageFamily = localName.replace(/-(lite|full)$/, "");
   const isCorePackage = packageFamily === "fastboard-core";
   const isUIPackage = packageFamily === "fastboard-ui";
   const shouldBuildModeDts = !standaloneMode && isUIPackage;
-  const coreOptionalPlugins = [
-    "@netless/appliance-plugin",
-    "@netless/app-in-mainview-plugin",
-  ];
-  const isCoreOptionalPlugin = id =>
-    coreOptionalPlugins.some(pkg => id === pkg || id.startsWith(`${pkg}/`));
+  const coreOptionalPlugins = ["@netless/appliance-plugin", "@netless/app-in-mainview-plugin"];
+  const isCoreOptionalPlugin = id => coreOptionalPlugins.some(pkg => id === pkg || id.startsWith(`${pkg}/`));
   const nodeBuiltins = [
     "fs",
     "path",
@@ -186,17 +178,18 @@ export async function build({
         full ? esbuildFullPlugin(extraExternal, alias) : esbuildPlugin(extraExternal, alias),
         ...(full ? [fixIIFEPlugin()] : []),
       ],
-      external: full && isCorePackage
-        ? id => {
-            if (isCoreOptionalPlugin(id)) {
-              return true;
+      external:
+        full && isCorePackage
+          ? id => {
+              if (isCoreOptionalPlugin(id)) {
+                return true;
+              }
+              if (id.startsWith("node:") || (!id.includes("/") && !id.includes("\\"))) {
+                return nodeBuiltins.includes(id);
+              }
+              return false;
             }
-            if (id.startsWith("node:") || (!id.includes("/") && !id.includes("\\"))) {
-              return nodeBuiltins.includes(id);
-            }
-            return false;
-          }
-        : [/^[@a-z]/],
+          : [/^[@a-z]/],
     });
 
     const esm = bundle.write({
@@ -249,9 +242,7 @@ export async function build({
     start = Date.now();
     const bundle = await rollup.rollup({
       input: main,
-      plugins: [
-        esbuildPlugin(["svelte"], standaloneMode ? getRuntimeAlias(standaloneMode) : {}),
-      ],
+      plugins: [esbuildPlugin(["svelte"], standaloneMode ? getRuntimeAlias(standaloneMode) : {})],
       external: [/^[@a-z]/],
     });
     await bundle.write({
@@ -269,7 +260,9 @@ export async function build({
       exclude: ["svelte", "svelte/internal", ...coreOptionalPlugins],
     });
   } else if (standaloneMode === "full" && isCorePackage) {
-    await dts.build(main, "dist/index.d.ts", { exclude: ["svelte", "svelte/internal", ...coreOptionalPlugins] });
+    await dts.build(main, "dist/index.d.ts", {
+      exclude: ["svelte", "svelte/internal", ...coreOptionalPlugins],
+    });
   } else {
     await dts.build(main, "dist/index.d.ts", { exclude: ["svelte", "svelte/internal", "./lite", "./full"] });
     if (standaloneMode) {
@@ -281,7 +274,10 @@ export async function build({
 
   if (shouldBuildModeDts) {
     start = Date.now();
-    fs.writeFileSync("dist/lite.d.ts", replaceModeImports(fs.readFileSync("dist/index.d.ts", "utf-8"), "lite"));
+    fs.writeFileSync(
+      "dist/lite.d.ts",
+      replaceModeImports(fs.readFileSync("dist/index.d.ts", "utf-8"), "lite")
+    );
     console.log("Built dist/lite.d.ts in", Date.now() - start + "ms");
   }
 
@@ -342,113 +338,116 @@ export async function build({
     return {
       name: "fix-iife",
       renderChunk(code, chunk, options) {
-      let modified = false;
-      let fixCount = 0;
-      const originalCode = code;
+        let modified = false;
+        let fixCount = 0;
+        const originalCode = code;
 
-      // 通用模式 1：if (typeof define == "function" && define.amd) { define(function() { return X; }); } else if ...
-      // 提取返回值并设置 module2.exports = X;
-      // 支持 == 和 ===
-      // 使用更有针对性的方法：匹配 define 调用并找到下一个 } else if
-      // 通过更精确的匹配，此模式在大型代码块中效果更好
-      const pattern1 =
-        /(if\s*\(typeof\s+define\s*(?:==|===)\s*["']function["']\s*&&\s*define\.amd\)\s*\{[\s\S]*?define\s*\(function\s*\(\)\s*\{\s*return\s+([^;]+);\s*\}\s*\)\s*;[\s\S]*?)(\n\s*\}\s*else\s*if)/g;
-      code = code.replace(pattern1, (match, defineBlock, returnValue, elseIf) => {
-        // 如果此块中已设置 module2.exports，则跳过
-        if (defineBlock.includes("module2.exports") || defineBlock.includes("freeModule.exports")) {
-          return match;
+        // 通用模式 1：if (typeof define == "function" && define.amd) { define(function() { return X; }); } else if ...
+        // 提取返回值并设置 module2.exports = X;
+        // 支持 == 和 ===
+        // 使用更有针对性的方法：匹配 define 调用并找到下一个 } else if
+        // 通过更精确的匹配，此模式在大型代码块中效果更好
+        const pattern1 =
+          /(if\s*\(typeof\s+define\s*(?:==|===)\s*["']function["']\s*&&\s*define\.amd\)\s*\{[\s\S]*?define\s*\(function\s*\(\)\s*\{\s*return\s+([^;]+);\s*\}\s*\)\s*;[\s\S]*?)(\n\s*\}\s*else\s*if)/g;
+        code = code.replace(pattern1, (match, defineBlock, returnValue, elseIf) => {
+          // 如果此块中已设置 module2.exports，则跳过
+          if (defineBlock.includes("module2.exports") || defineBlock.includes("freeModule.exports")) {
+            return match;
+          }
+          modified = true;
+          fixCount++;
+          // 从返回值中提取变量名（处理简单标识符）
+          const varName = returnValue.trim().split(/[.\s[\]()]/)[0];
+          // 在右大括号之前添加 module2.exports 赋值
+          return (
+            defineBlock +
+            `\n        if (typeof module2 != "undefined" && module2.exports) {\n          module2.exports = ${varName};\n        }` +
+            elseIf
+          );
+        });
+
+        // 对 decimal.js 的特殊处理：代码块非常大，因此我们需要更具体的模式
+        // 匹配出现在 else if 之前的模式，考虑可能的空白字符
+        if (code.includes("require_decimal") && code.includes("decimal.js")) {
+          // 更具体的模式：查找 define 调用，后跟右大括号和 else if
+          const decimalPattern =
+            /(if\s*\(typeof\s+define\s*==\s*["']function["']\s*&&\s*define\.amd\)\s*\{[\s\S]*?define\s*\(function\s*\(\)\s*\{\s*return\s+Decimal;\s*\}\s*\)\s*;[\s\S]*?)(\n\s*\}\s*else\s*if\s*\(typeof\s+module2)/g;
+          const decimalMatch = decimalPattern.exec(code);
+          if (decimalMatch && !decimalMatch[1].includes("module2.exports = Decimal")) {
+            code = code.replace(decimalPattern, (match, defineBlock, elseIf) => {
+              modified = true;
+              fixCount++;
+              return (
+                defineBlock +
+                `\n        if (typeof module2 != "undefined" && module2.exports) {\n          module2.exports = Decimal;\n        }` +
+                elseIf
+              );
+            });
+          }
         }
-        modified = true;
-        fixCount++;
-        // 从返回值中提取变量名（处理简单标识符）
-        const varName = returnValue.trim().split(/[.\s[\]()]/)[0];
-        // 在右大括号之前添加 module2.exports 赋值
-        return (
-          defineBlock +
-          `\n        if (typeof module2 != "undefined" && module2.exports) {\n          module2.exports = ${varName};\n        }` +
-          elseIf
-        );
-      });
 
-      // 对 decimal.js 的特殊处理：代码块非常大，因此我们需要更具体的模式
-      // 匹配出现在 else if 之前的模式，考虑可能的空白字符
-      if (code.includes("require_decimal") && code.includes("decimal.js")) {
-        // 更具体的模式：查找 define 调用，后跟右大括号和 else if
-        const decimalPattern =
-          /(if\s*\(typeof\s+define\s*==\s*["']function["']\s*&&\s*define\.amd\)\s*\{[\s\S]*?define\s*\(function\s*\(\)\s*\{\s*return\s+Decimal;\s*\}\s*\)\s*;[\s\S]*?)(\n\s*\}\s*else\s*if\s*\(typeof\s+module2)/g;
-        const decimalMatch = decimalPattern.exec(code);
-        if (decimalMatch && !decimalMatch[1].includes("module2.exports = Decimal")) {
-          code = code.replace(decimalPattern, (match, defineBlock, elseIf) => {
-            modified = true;
-            fixCount++;
-            return (
-              defineBlock +
-              `\n        if (typeof module2 != "undefined" && module2.exports) {\n          module2.exports = Decimal;\n        }` +
-              elseIf
-            );
-          });
+        // 通用模式 2：if (typeof define === "function" && define.amd) { define([], factory2); } else if ...
+        // 调用 factory2() 并设置 module2.exports = factory2();
+        // 支持 == 和 ===
+        const pattern2 =
+          /(if\s*\(typeof\s+define\s*(?:==|===)\s*["']function["']\s*&&\s*define\.amd\)\s*\{[^}]*?define\s*\(\s*\[\]\s*,\s*([^)]+)\)\s*;\s*)(\s*\}\s*else\s*if)/g;
+        code = code.replace(pattern2, (match, defineBlock, factoryName, elseIf) => {
+          // 如果此块中已设置 module2.exports，则跳过
+          if (defineBlock.includes("module2.exports")) {
+            return match;
+          }
+          modified = true;
+          fixCount++;
+          // 提取工厂函数名
+          const factory = factoryName.trim();
+          // 在右大括号之前添加 module2.exports 赋值
+          return (
+            defineBlock +
+            `\n        if (typeof module2 != "undefined" && module2.exports) {\n          module2.exports = ${factory}();\n        }` +
+            elseIf
+          );
+        });
+
+        // 通用模式 3：if (typeof define == "function" && typeof define.amd == "object" && define.amd) { ... define(...); } else if ...
+        // 这处理 lodash 和具有更复杂 define.amd 检查的类似库
+        const pattern3 =
+          /(if\s*\(typeof\s+define\s*==\s*["']function["']\s*&&\s*typeof\s+define\.amd\s*==\s*["']object["']\s*&&\s*define\.amd\)\s*\{[^}]*?define\s*\(function\s*\(\)\s*\{\s*return\s+([^;]+);\s*\}\s*\)\s*;\s*)(\s*\}\s*else\s*if)/g;
+        code = code.replace(pattern3, (match, defineBlock, returnValue, elseIf) => {
+          // 如果此块中已设置 module2.exports，则跳过
+          if (defineBlock.includes("module2.exports") || defineBlock.includes("freeModule.exports")) {
+            return match;
+          }
+          modified = true;
+          fixCount++;
+          // 从返回值中提取变量名
+          const varName = returnValue.trim().split(/[.\s[\]()]/)[0];
+          // 在右大括号之前添加 module2.exports 赋值
+          return (
+            defineBlock +
+            `\n        if (typeof module2 != "undefined" && module2.exports) {\n          module2.exports = ${varName};\n        }` +
+            elseIf
+          );
+        });
+
+        if (modified) {
+          console.log(`[fixIIFEPlugin] Fixed ${fixCount} IIFE module(s) in ${chunk.fileName || "chunk"}`);
+        } else if (code.includes("require_decimal") && !code.includes("module2.exports = Decimal")) {
+          // 调试：检查 require_decimal 是否存在但未修复
+          console.log(
+            `[fixIIFEPlugin] Warning: require_decimal found but not fixed in ${chunk.fileName || "chunk"}`
+          );
         }
-      }
 
-      // 通用模式 2：if (typeof define === "function" && define.amd) { define([], factory2); } else if ...
-      // 调用 factory2() 并设置 module2.exports = factory2();
-      // 支持 == 和 ===
-      const pattern2 =
-        /(if\s*\(typeof\s+define\s*(?:==|===)\s*["']function["']\s*&&\s*define\.amd\)\s*\{[^}]*?define\s*\(\s*\[\]\s*,\s*([^)]+)\)\s*;\s*)(\s*\}\s*else\s*if)/g;
-      code = code.replace(pattern2, (match, defineBlock, factoryName, elseIf) => {
-        // 如果此块中已设置 module2.exports，则跳过
-        if (defineBlock.includes("module2.exports")) {
-          return match;
-        }
-        modified = true;
-        fixCount++;
-        // 提取工厂函数名
-        const factory = factoryName.trim();
-        // 在右大括号之前添加 module2.exports 赋值
-        return (
-          defineBlock +
-          `\n        if (typeof module2 != "undefined" && module2.exports) {\n          module2.exports = ${factory}();\n        }` +
-          elseIf
-        );
-      });
-
-      // 通用模式 3：if (typeof define == "function" && typeof define.amd == "object" && define.amd) { ... define(...); } else if ...
-      // 这处理 lodash 和具有更复杂 define.amd 检查的类似库
-      const pattern3 =
-        /(if\s*\(typeof\s+define\s*==\s*["']function["']\s*&&\s*typeof\s+define\.amd\s*==\s*["']object["']\s*&&\s*define\.amd\)\s*\{[^}]*?define\s*\(function\s*\(\)\s*\{\s*return\s+([^;]+);\s*\}\s*\)\s*;\s*)(\s*\}\s*else\s*if)/g;
-      code = code.replace(pattern3, (match, defineBlock, returnValue, elseIf) => {
-        // 如果此块中已设置 module2.exports，则跳过
-        if (defineBlock.includes("module2.exports") || defineBlock.includes("freeModule.exports")) {
-          return match;
-        }
-        modified = true;
-        fixCount++;
-        // 从返回值中提取变量名
-        const varName = returnValue.trim().split(/[.\s[\]()]/)[0];
-        // 在右大括号之前添加 module2.exports 赋值
-        return (
-          defineBlock +
-          `\n        if (typeof module2 != "undefined" && module2.exports) {\n          module2.exports = ${varName};\n        }` +
-          elseIf
-        );
-      });
-
-      if (modified) {
-        console.log(`[fixIIFEPlugin] Fixed ${fixCount} IIFE module(s) in ${chunk.fileName || "chunk"}`);
-      } else if (code.includes("require_decimal") && !code.includes("module2.exports = Decimal")) {
-        // 调试：检查 require_decimal 是否存在但未修复
-        console.log(
-          `[fixIIFEPlugin] Warning: require_decimal found but not fixed in ${chunk.fileName || "chunk"}`
-        );
-      }
-
-      return { code, map: null };
+        return { code, map: null };
       },
     };
   }
   if (shouldBuildModeDts) {
     start = Date.now();
-    fs.writeFileSync("dist/full.d.ts", replaceModeImports(fs.readFileSync("dist/index.d.ts", "utf-8"), "full"));
+    fs.writeFileSync(
+      "dist/full.d.ts",
+      replaceModeImports(fs.readFileSync("dist/index.d.ts", "utf-8"), "full")
+    );
     console.log("Built dist/full.d.ts in", Date.now() - start + "ms");
   }
 }

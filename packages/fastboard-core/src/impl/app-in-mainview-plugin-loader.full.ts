@@ -4,9 +4,7 @@ import type { AppInMainViewPlugin } from "@netless/app-in-mainview-plugin";
 export async function loadAppInMainViewPluginModule(): Promise<{
   AppInMainViewPlugin: typeof AppInMainViewPlugin;
 }> {
-  const { loadAppInMainViewPluginBridge } = await import(
-    "@netless/app-in-mainview-plugin/bridge"
-  );
+  const { loadAppInMainViewPluginBridge } = await import("@netless/app-in-mainview-plugin/bridge");
   return loadAppInMainViewPluginBridge({
     toJS,
     autorun,

@@ -1,6 +1,7 @@
 {
   "name": "fastboard-monorepo",
   "private": "true",
+  "packageManager": "pnpm@10.34.4",
   "scripts": {
     "preinstall": "npx only-allow pnpm",
     "lint": "eslint --ext .ts,.tsx . && prettier --check .",
