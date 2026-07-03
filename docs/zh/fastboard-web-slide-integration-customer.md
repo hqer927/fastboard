@@ -38,7 +38,7 @@ pnpm add @netless/fastboard @netless/app-slide @netless/app-presentation
 
 - 依赖动态文件转换结果
 - 打开后对应的 App Kind 为 `Slide`
-- 可以通过 `appResult.prevPage()`、`nextPage()`、`jumpToPage()` 控制页码
+- 推荐通过 `dispatchDocsEvent()` 统一控制页码，也可以通过底层 `appResult` 直接控制
 
 ### 静态 PPT / PDF：`DocsViewer`
 
@@ -248,7 +248,31 @@ const appId = await fastboard.insertDocs({
 Slide-fdf169a0
 ```
 
-后续可以通过 `appId` 获取对应实例：
+推荐使用统一文档控制接口：
+
+```ts
+import { dispatchDocsEvent } from "@netless/fastboard";
+
+dispatchDocsEvent(fastboard, "prevPage", { appId });
+dispatchDocsEvent(fastboard, "nextPage", { appId });
+dispatchDocsEvent(fastboard, "jumpToPage", { appId, page: 3 });
+```
+
+如果需要控制动画步骤，也可以使用：
+
+```ts
+dispatchDocsEvent(fastboard, "prevStep", { appId });
+dispatchDocsEvent(fastboard, "nextStep", { appId });
+```
+
+说明：
+
+- `jumpToPage(page)` 采用 1-based 页码
+- `jumpToPage(1)` 表示跳到第一页
+- `prevPage` / `nextPage` 是上一页、下一页
+- `prevStep` / `nextStep` 是动态 PPT 的动画步骤控制
+
+底层上，动态 PPT 也可以通过 `appId` 获取对应实例：
 
 ```ts
 const app = fastboard.manager.queryOne(appId);
@@ -262,11 +286,6 @@ controller?.prevPage();
 controller?.nextPage();
 controller?.jumpToPage(3);
 ```
-
-说明：
-
-- `jumpToPage(page)` 采用 1-based 页码
-- `jumpToPage(1)` 表示跳到第一页
 
 如果已经知道实例 ID，也可以直接写：
 
@@ -333,9 +352,9 @@ const appId = await fastboard.insertDocs({
 - `scenes[].ppt.width` / `height` 来自页面尺寸
 - `DocsViewer` 打开的不是原始文档，而是转换后的图片资源集合
 
-### 8.3 控制指定静态文档
+### 8.3 控制指定静态 PPT / PDF
 
-如果静态文档是通过 `DocsViewer` 打开的，推荐使用统一文档控制接口：
+如果静态文档是通过 `DocsViewer` 打开的，也推荐使用同一套文档控制接口：
 
 ```ts
 import { dispatchDocsEvent } from "@netless/fastboard";
@@ -345,7 +364,45 @@ dispatchDocsEvent(fastboard, "nextPage", { appId });
 dispatchDocsEvent(fastboard, "jumpToPage", { appId, page: 3 });
 ```
 
-## 9. PPT 窗口全屏展开
+说明：
+
+- 这里的 `appId` 通常形如 `DocsViewer-xxxx`
+- `jumpToPage(page)` 同样采用 1-based 页码
+- 静态 PPT / PDF 没有动画步骤，`prevStep` / `nextStep` 会等价为上一页 / 下一页
+
+## 9. PPT / 文档公共接口整理
+
+结合 `fastboard`、`@netless/app-slide`、`@netless/app-presentation` 和 `window-manager` 的实现，建议客户侧只暴露以下稳定接口。
+
+| 场景 | 推荐公共接口 | 适用范围 | 说明 |
+| --- | --- | --- | --- |
+| 注册动态 PPT | `register({ kind: "Slide", src: () => import("@netless/app-slide") })` | 动态 PPT | 对应 App Kind 为 `Slide` |
+| 注册静态文档 | `install(register, { as: "DocsViewer" })` | 静态 PPT / PDF | 必须安装为 `DocsViewer`，这样才能被 `insertDocs()` 和 `dispatchDocsEvent()` 统一处理 |
+| 打开文档 | `fastboard.insertDocs(params)` | 动态 PPT / 静态 PPT / PDF | 动态传 `fileType: "pptx"`；静态传 `fileType: "pdf"` 和 `scenes` |
+| 控制文档 | `dispatchDocsEvent(fastboard, event, { appId, page })` | 动态 PPT / 静态 PPT / PDF | 推荐业务侧统一使用 |
+| 查询底层实例 | `fastboard.manager.queryOne(appId)` | 所有窗口 App | 用于插图、截图、调试等高级场景 |
+| 窗口展示控制 | `fastboard.manager.setFullscreen(true / false)` | Fastboard / `window-manager` 容器 | 这是 `window-manager` 的 fullscreen 模式，不是浏览器原生 Fullscreen API |
+
+统一文档控制接口支持：
+
+```ts
+type DocsEvent = "prevPage" | "nextPage" | "jumpToPage" | "prevStep" | "nextStep";
+
+dispatchDocsEvent(fastboard, "prevPage", { appId });
+dispatchDocsEvent(fastboard, "nextPage", { appId });
+dispatchDocsEvent(fastboard, "jumpToPage", { appId, page: 3 });
+dispatchDocsEvent(fastboard, "prevStep", { appId });
+dispatchDocsEvent(fastboard, "nextStep", { appId });
+```
+
+结论：
+
+- 对“上一页 / 下一页 / 跳页”，动态 PPT 和静态 PPT / PDF 可以统一调用 `dispatchDocsEvent()`
+- 对“上一动画 / 下一动画”，动态 PPT 有真实动画步骤；静态文档会退化为上一页 / 下一页
+- 如果 `@netless/app-presentation` 没有通过 `{ as: "DocsViewer" }` 安装，而是保留默认 `Presentation` kind，则 `dispatchDocsEvent()` 不会识别它
+- `window-manager.nextPage()` / `prevPage()` 控制的是主白板页，不是指定 PPT 窗口；指定文档窗口时不要用它们
+
+## 10. PPT 窗口全屏展开
 
 如果需要让文档窗口进入 Fastboard 的 fullscreen 展示模式，可调用：
 
@@ -365,7 +422,7 @@ fastboard.manager.setFullscreen(false);
 - 它主要用于隐藏窗口标题栏、切换到更适合演示的布局
 - 它不是浏览器原生 Fullscreen API
 
-## 10. 向指定 PPT 中插入图片
+## 11. 向指定 PPT 中插入图片
 
 如果客户有“往 PPT 中插入图片”的需求，推荐理解为：
 
@@ -377,7 +434,7 @@ fastboard.manager.setFullscreen(false);
 - 这不是修改原始 PPT 文件本体
 - 而是在该 PPT 承载的白板视图中叠加一张图片对象
 
-### 10.1 推荐调用方式
+### 11.1 推荐调用方式
 
 ```ts
 const app = fastboard.manager.queryOne("Slide-fdf169a0");
@@ -407,7 +464,7 @@ if (view) {
 - `completeImageUpload(uuid, src)` 再把图片对象和真实图片地址绑定
 - 这两步通常需要配合使用
 
-### 10.2 为什么建议这样调用
+### 11.2 为什么建议这样调用
 
 客户给出的调用示例如下：
 
@@ -433,7 +490,7 @@ view.completeImageUpload(uuid, src);
 
 因为这更符合白板和 `window-manager` 的标准插图流程。
 
-### 10.3 使用注意事项
+### 11.3 使用注意事项
 
 - 只有带 `view` 的 App 才能插图，`Slide` 属于可插图类型
 - 图片 URL 必须可访问
@@ -442,7 +499,7 @@ view.completeImageUpload(uuid, src);
 - `centerX`、`centerY`、`width`、`height` 控制图片在白板中的位置和大小
 - 插入后的图片属于白板内容，会参与多人同步
 
-## 11. FAQ
+## 12. FAQ
 
 ### Q1：为什么不能直接把原始 PPT / PDF 文件交给 SDK？
 
@@ -481,7 +538,7 @@ Agora 官方文档说明：
 - 小于 50 页时，静态转换效果通常更好
 - 超过 100 页时，转换超时风险会变高
 
-## 12. 推荐的完整接入流程
+## 13. 推荐的完整接入流程
 
 一个标准接入流程如下：
 
@@ -492,9 +549,9 @@ Agora 官方文档说明：
 5. 前端初始化 Fastboard，并提前注册 `Slide` / `DocsViewer`
 6. 前端调用 `fastboard.insertDocs()` 打开文档
 7. 前端保存返回的 `appId`
-8. 业务侧根据需要调用翻页、跳页、全屏等 API
+8. 业务侧根据需要调用统一翻页、跳页、全屏等 API
 
-## 13. 常见注意事项
+## 14. 常见注意事项
 
 - 动态 PPT 推荐优先使用 `.pptx`，不要依赖旧格式 `.ppt`
 - 动态转换适用于需要保留动画的课件
@@ -505,10 +562,11 @@ Agora 官方文档说明：
 - 第三方存储需要保证客户端可以访问
 - 如果图片资源存在跨域，前端插图时建议显式设置 `crossOrigin`
 
-## 14. 最小可复用示例
+## 15. 最小可复用示例
 
 ```ts
 import { register } from "@netless/fastboard-react";
+import { dispatchDocsEvent } from "@netless/fastboard";
 import { install } from "@netless/app-presentation";
 
 export function setupNetlessApps() {
@@ -545,16 +603,24 @@ export function fullscreen(manager: any) {
   manager.setFullscreen(true);
 }
 
-export function prevDynamicPage(manager: any, appId: string) {
-  return manager.queryOne(appId)?.appResult?.prevPage();
+export function prevDocsPage(fastboard: any, appId: string) {
+  return dispatchDocsEvent(fastboard, "prevPage", { appId });
 }
 
-export function nextDynamicPage(manager: any, appId: string) {
-  return manager.queryOne(appId)?.appResult?.nextPage();
+export function nextDocsPage(fastboard: any, appId: string) {
+  return dispatchDocsEvent(fastboard, "nextPage", { appId });
 }
 
-export function jumpDynamicPage(manager: any, appId: string, page: number) {
-  return manager.queryOne(appId)?.appResult?.jumpToPage(page);
+export function jumpDocsPage(fastboard: any, appId: string, page: number) {
+  return dispatchDocsEvent(fastboard, "jumpToPage", { appId, page });
+}
+
+export function prevDocsStep(fastboard: any, appId: string) {
+  return dispatchDocsEvent(fastboard, "prevStep", { appId });
+}
+
+export function nextDocsStep(fastboard: any, appId: string) {
+  return dispatchDocsEvent(fastboard, "nextStep", { appId });
 }
 
 export function insertImageToSlide(manager: any, appId: string, params: {
@@ -586,7 +652,7 @@ export function insertImageToSlide(manager: any, appId: string, params: {
 }
 ```
 
-## 15. 结论
+## 16. 结论
 
 对于 Web 集成场景，推荐的标准方案是：
 
@@ -595,4 +661,4 @@ export function insertImageToSlide(manager: any, appId: string, params: {
 - 使用 `@netless/app-presentation` 并以 `DocsViewer` 方式处理静态 PPT / PDF
 - 通过 Agora 文件转换服务先生成动态或静态文档资源
 - 前端用转换结果调用 `insertDocs()` 打开文档
-- 通过 `appId` 精确控制指定文档实例
+- 通过 `dispatchDocsEvent()` + `appId` 精确控制指定动态 PPT / 静态 PPT / PDF

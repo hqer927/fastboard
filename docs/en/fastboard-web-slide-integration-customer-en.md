@@ -38,7 +38,7 @@ Characteristics:
 
 - Depends on dynamic file conversion results
 - The app kind after opening is `Slide`
-- Page control can be done through `appResult.prevPage()`, `nextPage()`, and `jumpToPage()`
+- Page control is recommended through `dispatchDocsEvent()`, while the lower-level `appResult` APIs can still be used directly
 
 ### Static PPT / PDF: `DocsViewer`
 
@@ -248,7 +248,31 @@ After opening successfully, you will usually get an `appId`, for example:
 Slide-fdf169a0
 ```
 
-Then you can get the corresponding instance through `appId`:
+We recommend using the unified document control API:
+
+```ts
+import { dispatchDocsEvent } from "@netless/fastboard";
+
+dispatchDocsEvent(fastboard, "prevPage", { appId });
+dispatchDocsEvent(fastboard, "nextPage", { appId });
+dispatchDocsEvent(fastboard, "jumpToPage", { appId, page: 3 });
+```
+
+If you need to control animation steps, you can also use:
+
+```ts
+dispatchDocsEvent(fastboard, "prevStep", { appId });
+dispatchDocsEvent(fastboard, "nextStep", { appId });
+```
+
+Notes:
+
+- `jumpToPage(page)` uses 1-based page indexing
+- `jumpToPage(1)` means jumping to the first page
+- `prevPage` / `nextPage` mean previous page / next page
+- `prevStep` / `nextStep` control dynamic PPT animation steps
+
+At the lower level, you can still get the corresponding dynamic PPT instance through `appId`:
 
 ```ts
 const app = fastboard.manager.queryOne(appId);
@@ -262,11 +286,6 @@ controller?.prevPage();
 controller?.nextPage();
 controller?.jumpToPage(3);
 ```
-
-Notes:
-
-- `jumpToPage(page)` uses 1-based page indexing
-- `jumpToPage(1)` means jumping to the first page
 
 If you already know the instance ID, you can also call it directly:
 
@@ -333,9 +352,9 @@ Key points here:
 - `scenes[].ppt.width` / `height` come from the page size
 - `DocsViewer` does not open the original document, but the converted image resource set
 
-### 8.3 Control a Specific Static Document
+### 8.3 Control a Specific Static PPT / PDF
 
-If the static document is opened via `DocsViewer`, it is recommended to use the unified document control API:
+If the static document is opened via `DocsViewer`, we recommend using the same document control API:
 
 ```ts
 import { dispatchDocsEvent } from "@netless/fastboard";
@@ -345,7 +364,45 @@ dispatchDocsEvent(fastboard, "nextPage", { appId });
 dispatchDocsEvent(fastboard, "jumpToPage", { appId, page: 3 });
 ```
 
-## 9. Expand PPT to Fullscreen
+Notes:
+
+- The `appId` usually looks like `DocsViewer-xxxx`
+- `jumpToPage(page)` also uses 1-based page indexing
+- Static PPT / PDF has no animation steps, so `prevStep` / `nextStep` are equivalent to previous page / next page
+
+## 9. PPT / Document Public API Summary
+
+Based on the implementations of `fastboard`, `@netless/app-slide`, `@netless/app-presentation`, and `window-manager`, we recommend exposing only the following stable APIs to customer-side business code.
+
+| Scenario | Recommended public API | Applies to | Notes |
+| --- | --- | --- | --- |
+| Register dynamic PPT | `register({ kind: "Slide", src: () => import("@netless/app-slide") })` | Dynamic PPT | The app kind is `Slide` |
+| Register static documents | `install(register, { as: "DocsViewer" })` | Static PPT / PDF | It must be installed as `DocsViewer` so that `insertDocs()` and `dispatchDocsEvent()` can handle it uniformly |
+| Open documents | `fastboard.insertDocs(params)` | Dynamic PPT / static PPT / PDF | Use `fileType: "pptx"` for dynamic PPT; use `fileType: "pdf"` and `scenes` for static documents |
+| Control documents | `dispatchDocsEvent(fastboard, event, { appId, page })` | Dynamic PPT / static PPT / PDF | Recommended as the unified business-side control API |
+| Query lower-level instance | `fastboard.manager.queryOne(appId)` | All window apps | Useful for advanced scenarios such as inserting images, screenshots, and debugging |
+| Presentation layout control | `fastboard.manager.setFullscreen(true / false)` | Fastboard / `window-manager` container | This is `window-manager` fullscreen mode, not the browser's native Fullscreen API |
+
+The unified document control API supports:
+
+```ts
+type DocsEvent = "prevPage" | "nextPage" | "jumpToPage" | "prevStep" | "nextStep";
+
+dispatchDocsEvent(fastboard, "prevPage", { appId });
+dispatchDocsEvent(fastboard, "nextPage", { appId });
+dispatchDocsEvent(fastboard, "jumpToPage", { appId, page: 3 });
+dispatchDocsEvent(fastboard, "prevStep", { appId });
+dispatchDocsEvent(fastboard, "nextStep", { appId });
+```
+
+Conclusion:
+
+- For previous page / next page / page jump, dynamic PPT and static PPT / PDF can both use `dispatchDocsEvent()`
+- For previous animation / next animation, dynamic PPT has real animation steps; static documents degrade to previous page / next page
+- If `@netless/app-presentation` is not installed with `{ as: "DocsViewer" }` and keeps its default `Presentation` kind, `dispatchDocsEvent()` will not recognize it
+- `window-manager.nextPage()` / `prevPage()` controls the main whiteboard page, not a specific PPT window; do not use them for controlling a specified document window
+
+## 10. Expand PPT to Fullscreen
 
 If you need the document window to enter Fastboard's fullscreen presentation mode, you can call:
 
@@ -365,7 +422,7 @@ Please note:
 - It is mainly used to hide the window title bar and switch to a layout more suitable for presentation
 - It is not the browser's native Fullscreen API
 
-## 10. Insert an Image into a Specific PPT
+## 11. Insert an Image into a Specific PPT
 
 If the customer has a requirement to "insert an image into a PPT", the recommended interpretation is:
 
@@ -377,7 +434,7 @@ It is important to distinguish the following:
 - This does not modify the original PPT file itself
 - Instead, it overlays an image object onto the whiteboard view hosted by that PPT
 
-### 10.1 Recommended Calling Method
+### 11.1 Recommended Calling Method
 
 ```ts
 const app = fastboard.manager.queryOne("Slide-fdf169a0");
@@ -407,7 +464,7 @@ Explanation:
 - `completeImageUpload(uuid, src)` then binds the image object to the actual image URL
 - These two steps are typically used together
 
-### 10.2 Why This Calling Method Is Recommended
+### 11.2 Why This Calling Method Is Recommended
 
 The customer's example is:
 
@@ -433,7 +490,7 @@ view.completeImageUpload(uuid, src);
 
 Because this better aligns with the standard image insertion flow of the whiteboard and `window-manager`.
 
-### 10.3 Usage Notes
+### 11.3 Usage Notes
 
 - Only Apps that have a `view` can support image insertion; `Slide` is one of them
 - The image URL must be accessible
@@ -442,7 +499,7 @@ Because this better aligns with the standard image insertion flow of the whitebo
 - `centerX`, `centerY`, `width`, and `height` control the position and size of the image on the whiteboard
 - The inserted image becomes part of the whiteboard content and will be synchronized across participants
 
-## 11. FAQ
+## 12. FAQ
 
 ### Q1: Why can't the SDK open the original PPT / PDF file directly?
 
@@ -481,7 +538,7 @@ According to Agora's official documentation:
 - Files with fewer than 50 pages usually have better static conversion results
 - Files with more than 100 pages have a higher risk of conversion timeout
 
-## 12. Recommended End-to-End Workflow
+## 13. Recommended End-to-End Workflow
 
 A standard workflow is as follows:
 
@@ -492,9 +549,9 @@ A standard workflow is as follows:
 5. The frontend initializes Fastboard and registers `Slide` / `DocsViewer` in advance
 6. The frontend calls `fastboard.insertDocs()` to open the document
 7. The frontend saves the returned `appId`
-8. The business side calls APIs such as page navigation, page jump, and fullscreen as needed
+8. The business side calls unified APIs such as page navigation, page jump, and fullscreen as needed
 
-## 13. Common Notes
+## 14. Common Notes
 
 - For dynamic PPT, `.pptx` is strongly recommended instead of the older `.ppt` format
 - Dynamic conversion is suitable for courseware that needs animation
@@ -505,10 +562,11 @@ A standard workflow is as follows:
 - Third-party storage must be accessible from the client side
 - If image resources are cross-origin, it is recommended to explicitly set `crossOrigin` when inserting images on the frontend
 
-## 14. Minimal Reusable Example
+## 15. Minimal Reusable Example
 
 ```ts
 import { register } from "@netless/fastboard-react";
+import { dispatchDocsEvent } from "@netless/fastboard";
 import { install } from "@netless/app-presentation";
 
 export function setupNetlessApps() {
@@ -545,16 +603,24 @@ export function fullscreen(manager: any) {
   manager.setFullscreen(true);
 }
 
-export function prevDynamicPage(manager: any, appId: string) {
-  return manager.queryOne(appId)?.appResult?.prevPage();
+export function prevDocsPage(fastboard: any, appId: string) {
+  return dispatchDocsEvent(fastboard, "prevPage", { appId });
 }
 
-export function nextDynamicPage(manager: any, appId: string) {
-  return manager.queryOne(appId)?.appResult?.nextPage();
+export function nextDocsPage(fastboard: any, appId: string) {
+  return dispatchDocsEvent(fastboard, "nextPage", { appId });
 }
 
-export function jumpDynamicPage(manager: any, appId: string, page: number) {
-  return manager.queryOne(appId)?.appResult?.jumpToPage(page);
+export function jumpDocsPage(fastboard: any, appId: string, page: number) {
+  return dispatchDocsEvent(fastboard, "jumpToPage", { appId, page });
+}
+
+export function prevDocsStep(fastboard: any, appId: string) {
+  return dispatchDocsEvent(fastboard, "prevStep", { appId });
+}
+
+export function nextDocsStep(fastboard: any, appId: string) {
+  return dispatchDocsEvent(fastboard, "nextStep", { appId });
 }
 
 export function insertImageToSlide(manager: any, appId: string, params: {
@@ -586,7 +652,7 @@ export function insertImageToSlide(manager: any, appId: string, params: {
 }
 ```
 
-## 15. Conclusion
+## 16. Conclusion
 
 For Web integration scenarios, the recommended standard approach is:
 
@@ -595,4 +661,4 @@ For Web integration scenarios, the recommended standard approach is:
 - Use `@netless/app-presentation` as `DocsViewer` for static PPT / PDF
 - Use Agora file conversion service to generate dynamic or static document resources first
 - Let the frontend call `insertDocs()` with the conversion result to open the document
-- Use `appId` to precisely control a specific document instance
+- Use `dispatchDocsEvent()` + `appId` to precisely control a specific dynamic PPT / static PPT / PDF instance
