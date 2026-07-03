@@ -269,7 +269,7 @@ export async function replayFastboard<TEventData extends Record<string, any> = a
     _AppInMainViewPlugin = AppInMainViewPlugin;
     replayRoomParamsWithPlugin.invisiblePlugins = [
       ...replayRoomParamsWithPlugin.invisiblePlugins,
-      _AppInMainViewPlugin,
+      AppInMainViewPlugin,
     ];
   }
 

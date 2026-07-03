@@ -1,4 +1,17 @@
 {
   "extends": "../../tsconfig-base.json",
-  "include": ["src"]
+  "include": ["src"],
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@netless/fastboard-core": ["../fastboard-core/src/index.ts"],
+      "@netless/fastboard-ui": ["../fastboard-ui/src/index.ts"],
+      "@fastboard-internal/appliance-plugin-loader": [
+        "../fastboard-core/src/impl/appliance-plugin-loader.ts"
+      ],
+      "@fastboard-internal/app-in-mainview-plugin-loader": [
+        "../fastboard-core/src/impl/app-in-mainview-plugin-loader.ts"
+      ]
+    }
+  }
 }

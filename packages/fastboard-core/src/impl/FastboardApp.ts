@@ -794,7 +794,7 @@ export async function createFastboard<TEventData extends Record<string, any> = a
     _AppInMainViewPlugin = AppInMainViewPlugin;
     joinRoomParamsWithPlugin.invisiblePlugins = [
       ...joinRoomParamsWithPlugin.invisiblePlugins,
-      _AppInMainViewPlugin,
+      AppInMainViewPlugin,
     ];
   }
 
