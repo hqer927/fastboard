@@ -11,7 +11,7 @@ References:
 
 - Standard Fastboard documentation: [Fastboard Web Slide Integration Guide for Customers](./fastboard-web-slide-integration-customer-en.md)
 - Flat legacy implementation: [netless-io/flat](https://github.com/netless-io/flat)
-- Official projects: [white-web-sdk](https://www.npmjs.com/package/white-web-sdk), [netless-io/window-manager](https://github.com/netless-io/window-manager), [netless-io/fastboard](https://github.com/netless-io/fastboard), [@netless/app-slide](https://github.com/netless-io/netless-app/tree/slide-0.2/packages/app-slide), [@netless/app-docs-viewer](https://github.com/netless-io/netless-app/tree/master/packages/app-docs-viewer)
+- Official projects: [white-web-sdk](https://www.npmjs.com/package/white-web-sdk), [netless-io/window-manager](https://github.com/netless-io/window-manager), [netless-io/fastboard](https://github.com/netless-io/fastboard), [@netless/app-slide](https://github.com/netless-io/netless-app/tree/slide-0.2/packages/app-slide), [@netless/app-presentation](https://www.npmjs.com/package/@netless/app-presentation), [@netless/app-docs-viewer](https://github.com/netless-io/netless-app/tree/master/packages/app-docs-viewer)
 
 ## 1. Version Background
 
@@ -25,13 +25,15 @@ The customer currently builds its whiteboard capability on top of the canary whi
 | `@netless/app-slide` | `0.3.0-canary.21` |
 | `@netless/app-docs-viewer` | `1.0.0-canary.5` |
 
-The official Fastboard version analyzed in this document is `@netless/fastboard@1.1.6`. The peer dependency requirements of `@netless/fastboard-core@1.1.6` include:
+The official Fastboard version analyzed in this document is `@netless/fastboard@1.1.6`. Related official stack versions/requirements include:
 
-| Module | Official stack requirement |
+| Module | Official stack version/requirement |
 | --- | --- |
 | `white-web-sdk` | `>=2.16.54` |
 | `@netless/window-manager` | `>=1.0.14` |
 | `@netless/appliance-plugin` | `>=1.1.37` |
+| `@netless/app-slide` | `0.2.99` |
+| `@netless/app-presentation` | `0.1.9` |
 
 In the standard documentation, dynamic PPT continues to use `@netless/app-slide` and is registered as `Slide`; static PPT/PDF is recommended to use `@netless/app-presentation` and be installed as `DocsViewer`. If a customer's old Flat rooms have already persisted `Slide` or `DocsViewer` apps created by the old canary versions, those rooms need separate validation or compatibility routing.
 

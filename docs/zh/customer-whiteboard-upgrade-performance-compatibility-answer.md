@@ -11,7 +11,7 @@
 
 - 标准 Fastboard 文档：[Fastboard Web 文档集成指南（客户版）](./fastboard-web-slide-integration-customer.md)
 - Flat 旧实现：[netless-io/flat](https://github.com/netless-io/flat)
-- 正式版本项目：[white-web-sdk](https://www.npmjs.com/package/white-web-sdk)、[netless-io/window-manager](https://github.com/netless-io/window-manager)、[netless-io/fastboard](https://github.com/netless-io/fastboard)、[@netless/app-slide](https://github.com/netless-io/netless-app/tree/slide-0.2/packages/app-slide)、[@netless/app-docs-viewer](https://github.com/netless-io/netless-app/tree/master/packages/app-docs-viewer)
+- 正式版本项目：[white-web-sdk](https://www.npmjs.com/package/white-web-sdk)、[netless-io/window-manager](https://github.com/netless-io/window-manager)、[netless-io/fastboard](https://github.com/netless-io/fastboard)、[@netless/app-slide](https://github.com/netless-io/netless-app/tree/slide-0.2/packages/app-slide)、[@netless/app-presentation](https://www.npmjs.com/package/@netless/app-presentation)、[@netless/app-docs-viewer](https://github.com/netless-io/netless-app/tree/master/packages/app-docs-viewer)
 
 ## 1. 版本背景
 
@@ -25,13 +25,15 @@
 | `@netless/app-slide` | `0.3.0-canary.21` |
 | `@netless/app-docs-viewer` | `1.0.0-canary.5` |
 
-本文分析的正式 Fastboard 版本为 `@netless/fastboard@1.1.6`，`@netless/fastboard-core@1.1.6` 的 peer dependency 要求包括：
+本文分析的正式 Fastboard 版本为 `@netless/fastboard@1.1.6`。相关正式栈版本/约束包括：
 
-| 模块 | 正式栈约束 |
+| 模块 | 正式栈版本/约束 |
 | --- | --- |
 | `white-web-sdk` | `>=2.16.54` |
 | `@netless/window-manager` | `>=1.0.14` |
 | `@netless/appliance-plugin` | `>=1.1.37` |
+| `@netless/app-slide` | `0.2.99` |
+| `@netless/app-presentation` | `0.1.9` |
 
 标准文档中，动态 PPT 继续使用 `@netless/app-slide` 并注册为 `Slide`；静态 PPT/PDF 建议使用 `@netless/app-presentation` 并以 `DocsViewer` 方式安装。客户旧 Flat 房间如果已经持久化了旧 canary 版本创建的 `Slide` 或 `DocsViewer` app，需要单独验证或做兼容路由。
 
